@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RSA加密算法可视化演示</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#10b981',
+                        accent: '#8b5cf6',
+                        dark: '#1e293b',
+                        light: '#f8fafc'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .step-active {
+                @apply bg-primary text-white border-primary;
+            }
+            .step-complete {
+                @apply bg-secondary text-white border-secondary;
+            }
+            .step-pending {
+                @apply bg-gray-200 text-gray-500 border-gray-300;
+            }
+            .transition-all-300 {
+                @apply transition-all duration-300 ease-in-out;
+            }
+            .card-hover {
+                @apply hover:shadow-lg hover:-translate-y-1 transition-all-300;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <header class="text-center mb-12">
+            <h1 class="text-[clamp(1.8rem,4vw,2.8rem)] font-bold text-dark mb-4">RSA加密算法可视化演示</h1>
+            <p class="text-gray-600 max-w-3xl mx-auto">RSA是一种非对称加密算法，包含密钥生成、加密和解密三个主要过程。下方演示将展示每个步骤的具体计算过程。</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 输入区域 -->
+            <div class="lg:col-span-1 space-y-6">
+                <div class="bg-white rounded-xl shadow-md p-6 card-hover">
+                    <h2 class="text-xl font-semibold text-dark mb-4 flex items-center">
+                        <i class="fa fa-sliders text-primary mr-2"></i>参数设置
+                    </h2>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">明文 (m)</label>
+                            <input type="number" id="plaintext" value="123" min="1" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">质数 p</label>
+                            <input type="number" id="primeP" value="61" min="2" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">质数 q</label>
+                            <input type="number" id="primeQ" value="53" min="2" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">公钥指数 e (与φ(n)互质)</label>
+                            <input type="number" id="publicExponent" value="17" min="1" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-md p-6 card-hover">
+                    <h2 class="text-xl font-semibold text-dark mb-4 flex items-center">
+                        <i class="fa fa-cogs text-primary mr-2"></i>操作控制
+                    </h2>
+                    
+                    <div class="space-y-3">
+                        <button id="generateKeys" class="w-full bg-primary hover:bg-primary/90 text-white py-2 px-4 rounded-md transition-all-300 flex items-center justify-center">
+                            <i class="fa fa-key mr-2"></i>生成密钥对
+                        </button>
+                        
+                        <button id="encryptBtn" class="w-full bg-accent hover:bg-accent/90 text-white py-2 px-4 rounded-md transition-all-300 flex items-center justify-center">
+                            <i class="fa fa-lock mr-2"></i>加密
+                        </button>
+                        
+                        <button id="decryptBtn" class="w-full bg-secondary hover:bg-secondary/90 text-white py-2 px-4 rounded-md transition-all-300 flex items-center justify-center">
+                            <i class="fa fa-unlock mr-2"></i>解密
+                        </button>
+                        
+                        <button id="resetAll" class="w-full bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-md transition-all-300 flex items-center justify-center">
+                            <i class="fa fa-refresh mr-2"></i>重置
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-md p-6 card-hover">
+                    <h2 class="text-xl font-semibold text-dark mb-4 flex items-center">
+                        <i class="fa fa-shield text-primary mr-2"></i>密钥信息
+                    </h2>
+                    
+                    <div class="space-y-3 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">公钥 (e, n):</span>
+                            <span id="publicKey" class="font-mono bg-gray-100 px-2 py-1 rounded">--</span>
+                        </div>
+                        
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">私钥 (d, n):</span>
+                            <span id="privateKey" class="font-mono bg-gray-100 px-2 py-1 rounded">--</span>
+                        </div>
+                        
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">密文 (c):</span>
+                            <span id="ciphertext" class="font-mono bg-gray-100 px-2 py-1 rounded">--</span>
+                        </div>
+                        
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">解密结果:</span>
+                            <span id="decryptedResult" class="font-mono bg-gray-100 px-2 py-1 rounded">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 可视化区域 -->
+            <div class="lg:col-span-2 space-y-6">
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h2 class="text-xl font-semibold text-dark mb-6 flex items-center">
+                        <i class="fa fa-step-forward text-primary mr-2"></i>算法步骤可视化
+                    </h2>
+                    
+                    <!-- 步骤指示器 -->
+                    <div class="flex flex-wrap justify-between mb-8 relative">
+                        <div class="absolute top-1/2 left-0 right-0 h-1 bg-gray-200 -translate-y-1/2 z-0"></div>
+                        <div class="absolute top-1/2 left-0 h-1 bg-primary -translate-y-1/2 z-10 transition-all-300" id="progressBar" style="width: 0%"></div>
+                        
+                        <div class="step-indicator relative z-20 flex flex-col items-center w-1/4" data-step="1">
+                            <div class="w-10 h-10 rounded-full border-2 step-pending flex items-center justify-center mb-2 transition-all-300">1</div>
+                            <span class="text-sm text-center">选择质数</span>
+                        </div>
+                        
+                        <div class="step-indicator relative z-20 flex flex-col items-center w-1/4" data-step="2">
+                            <div class="w-10 h-10 rounded-full border-2 step-pending flex items-center justify-center mb-2 transition-all-300">2</div>
+                            <span class="text-sm text-center">计算n和φ(n)</span>
+                        </div>
+                        
+                        <div class="step-indicator relative z-20 flex flex-col items-center w-1/4" data-step="3">
+                            <div class="w-10 h-10 rounded-full border-2 step-pending flex items-center justify-center mb-2 transition-all-300">3</div>
+                            <span class="text-sm text-center">生成密钥对</span>
+                        </div>
+                        
+                        <div class="step-indicator relative z-20 flex flex-col items-center w-1/4" data-step="4">
+                            <div class="w-10 h-10 rounded-full border-2 step-pending flex items-center justify-center mb-2 transition-all-300">4</div>
+                            <span class="text-sm text-center">加密和解密</span>
+                        </div>
+                    </div>
+                    
+                    <!-- 步骤内容 -->
+                    <div class="step-content" id="step1">
+                        <div class="bg-blue-50 border-l-4 border-primary p-4 rounded mb-4">
+                            <h3 class="font-semibold text-primary">步骤1: 选择两个不同的质数 p 和 q</h3>
+                            <p class="text-gray-700 mt-1">RSA算法首先需要选择两个大质数，这是整个加密体系安全的基础。</p>
+                        </div>
+                        
+                        <div class="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                            <p class="mb-2"><span class="font-medium">选择的质数:</span></p>
+                            <p class="font-mono mb-1">p = <span id="pValue">--</span></p>
+                            <p class="font-mono">q = <span id="qValue">--</span></p>
+                            <div id="primeCheckResult" class="mt-3 text-sm hidden"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="step-content hidden" id="step2">
+                        <div class="bg-blue-50 border-l-4 border-primary p-4 rounded mb-4">
+                            <h3 class="font-semibold text-primary">步骤2: 计算 n 和 φ(n)</h3>
+                            <p class="text-gray-700 mt-1">n 是 p 和 q 的乘积，φ(n) 是欧拉函数，表示小于n且与n互质的整数的个数。</p>
+                        </div>
+                        
+                        <div class="p-4 border border-gray-200 rounded-lg bg-gray-50 space-y-4">
+                            <div>
+                                <p class="mb-1"><span class="font-medium">计算 n = p × q:</span></p>
+                                <p class="font-mono" id="nCalculation">--</p>
+                                <p class="font-mono mt-1">n = <span id="nValue">--</span></p>
+                            </div>
+                            
+                            <div>
+                                <p class="mb-1"><span class="font-medium">计算 φ(n) = (p-1) × (q-1):</span></p>
+                                <p class="font-mono" id="phiCalculation">--</p>
+                                <p class="font-mono mt-1">φ(n) = <span id="phiValue">--</span></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="step-content hidden" id="step3">
+                        <div class="bg-blue-50 border-l-4 border-primary p-4 rounded mb-4">
+                            <h3 class="font-semibold text-primary">步骤3: 生成公钥和私钥</h3>
+                            <p class="text-gray-700 mt-1">公钥由 (e, n) 组成，其中 e 与 φ(n) 互质；私钥由 (d, n) 组成，其中 d 是 e 模 φ(n) 的逆元。</p>
+                        </div>
+                        
+                        <div class="p-4 border border-gray-200 rounded-lg bg-gray-50 space-y-4">
+                            <div>
+                                <p class="mb-1"><span class="font-medium">公钥指数 e:</span></p>
+                                <p class="font-mono" id="eValue">--</p>
+                                <div id="coprimeCheckResult" class="mt-2 text-sm hidden"></div>
+                            </div>
+                            
+                            <div>
+                                <p class="mb-1"><span class="font-medium">计算私钥指数 d，使得 (e × d) ≡ 1 (mod φ(n)):</span></p>
+                                <p class="font-mono" id="dCalculation">--</p>
+                                <p class="font-mono mt-1">d = <span id="dValue">--</span></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="step-content hidden" id="step4">
+                        <div class="bg-blue-50 border-l-4 border-primary p-4 rounded mb-4">
+                            <h3 class="font-semibold text-primary">步骤4: 加密和解密过程</h3>
+                            <p class="text-gray-700 mt-1">加密使用公钥 (e, n)，计算 c = m<sup>e</sup> mod n；解密使用私钥 (d, n)，计算 m = c<sup>d</sup> mod n。</p>
+                        </div>
+                        
+                        <div class="p-4 border border-gray-200 rounded-lg bg-gray-50 space-y-4">
+                            <div>
+                                <p class="mb-1"><span class="font-medium">加密过程 (c = m<sup>e</sup> mod n):</span></p>
+                                <p class="font-mono" id="encryptionCalculation">--</p>
+                                <p class="font-mono mt-1">密文 c = <span id="cValue">--</span></p>
+                            </div>
+                            
+                            <div>
+                                <p class="mb-1"><span class="font-medium">解密过程 (m = c<sup>d</sup> mod n):</span></p>
+                                <p class="font-mono" id="decryptionCalculation">--</p>
+                                <p class="font-mono mt-1">明文 m = <span id="decryptedValue">--</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h2 class="text-xl font-semibold text-dark mb-4 flex items-center">
+                        <i class="fa fa-info-circle text-primary mr-2"></i>RSA算法说明
+                    </h2>
+                    
+                    <div class="text-gray-700 space-y-3 text-sm">
+                        <p>RSA是一种非对称加密算法，由Ron Rivest、Adi Shamir和Leonard Adleman于1977年提出。其安全性基于大数分解问题的困难性。</p>
+                        
+                        <h3 class="font-medium text-dark mt-2">算法核心步骤:</h3>
+                        <ol class="list-decimal list-inside space-y-1 pl-4">
+                            <li>选择两个不同的大质数 p 和 q</li>
+                            <li>计算 n = p × q 和 φ(n) = (p-1) × (q-1)</li>
+                            <li>选择一个整数 e，使得 1 < e < φ(n) 且 e 与 φ(n) 互质</li>
+                            <li>计算 e 模 φ(n) 的逆元 d，即 d = e<sup>-1</sup> mod φ(n)</li>
+                            <li>公钥为 (e, n)，私钥为 (d, n)</li>
+                            <li>加密: c = m<sup>e</sup> mod n</li>
+                            <li>解密: m = c<sup>d</sup> mod n</li>
+                        </ol>
+                        
+                        <p class="mt-2">在实际应用中，p和q会选择非常大的质数（通常是1024位或2048位），使得分解n变得极其困难，从而保证算法的安全性。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <footer class="mt-12 text-center text-gray-500 text-sm">
+            <p>RSA加密算法可视化演示 &copy; 2023</p>
+        </footer>
+    </div>
+
+    <script>
+        // RSA算法核心函数
+        const RSA = {
+            // 检查一个数是否为质数
+            isPrime: function(n) {
+                if (n <= 1) return false;
+                if (n <= 3) return true;
+                if (n % 2 === 0 || n % 3 === 0) return false;
+                
+                let i = 5;
+                let w = 2;
+                while (i * i <= n) {
+                    if (n % i === 0) return false;
+                    i += w;
+                    w = 6 - w;
+                }
+                return true;
+            },
+            
+            // 计算最大公约数
+            gcd: function(a, b) {
+                while (b) {
+                    let t = b;
+                    b = a % b;
+                    a = t;
+                }
+                return a;
+            },
+            
+            // 计算模逆元 (使用扩展欧几里得算法)
+            modInverse: function(a, m) {
+                let m0 = m;
+                let y = 0, x = 1;
+                
+                if (m === 1) return 0;
+                
+                while (a > 1) {
+                    let q = Math.floor(a / m);
+                    let t = m;
+                    
+                    m = a % m;
+                    a = t;
+                    t = y;
+                    
+                    y = x - q * y;
+                    x = t;
+                }
+                
+                if (x < 0) x += m0;
+                
+                return x;
+            },
+            
+            // 模幂运算 (高效计算 (base^exponent) % mod)
+            modPow: function(base, exponent, mod) {
+                if (mod === 1) return 0;
+                let result = 1;
+                base = base % mod;
+                while (exponent > 0) {
+                    if (exponent % 2 === 1) {
+                        result = (result * base) % mod;
+                    }
+                    exponent = Math.floor(exponent / 2);
+                    base = (base * base) % mod;
+                }
+                return result;
+            }
+        };
+
+        // DOM元素
+        const elements = {
+            // 输入
+            plaintext: document.getElementById('plaintext'),
+            primeP: document.getElementById('primeP'),
+            primeQ: document.getElementById('primeQ'),
+            publicExponent: document.getElementById('publicExponent'),
+            
+            // 按钮
+            generateKeys: document.getElementById('generateKeys'),
+            encryptBtn: document.getElementById('encryptBtn'),
+            decryptBtn: document.getElementById('decryptBtn'),
+            resetAll: document.getElementById('resetAll'),
+            
+            // 结果显示
+            publicKey: document.getElementById('publicKey'),
+            privateKey: document.getElementById('privateKey'),
+            ciphertext: document.getElementById('ciphertext'),
+            decryptedResult: document.getElementById('decryptedResult'),
+            
+            // 步骤显示
+            stepContents: document.querySelectorAll('.step-content'),
+            stepIndicators: document.querySelectorAll('.step-indicator'),
+            progressBar: document.getElementById('progressBar'),
+            
+            // 步骤1
+            pValue: document.getElementById('pValue'),
+            qValue: document.getElementById('qValue'),
+            primeCheckResult: document.getElementById('primeCheckResult'),
+            
+            // 步骤2
+            nCalculation: document.getElementById('nCalculation'),
+            nValue: document.getElementById('nValue'),
+            phiCalculation: document.getElementById('phiCalculation'),
+            phiValue: document.getElementById('phiValue'),
+            
+            // 步骤3
+            eValue: document.getElementById('eValue'),
+            coprimeCheckResult: document.getElementById('coprimeCheckResult'),
+            dCalculation: document.getElementById('dCalculation'),
+            dValue: document.getElementById('dValue'),
+            
+            // 步骤4
+            encryptionCalculation: document.getElementById('encryptionCalculation'),
+            cValue: document.getElementById('cValue'),
+            decryptionCalculation: document.getElementById('decryptionCalculation'),
+            decryptedValue: document.getElementById('decryptedValue')
+        };
+
+        // 数据存储
+        let rsaData = {
+            p: null,
+            q: null,
+            n: null,
+            phi: null,
+            e: null,
+            d: null,
+            m: null,
+            c: null
+        };
+
+        // 显示特定步骤
+        function showStep(stepNumber) {
+            // 隐藏所有步骤内容
+            elements.stepContents.forEach(content => {
+                content.classList.add('hidden');
+            });
+            
+            // 显示指定步骤
+            document.getElementById(`step${stepNumber}`).classList.remove('hidden');
+            
+            // 更新步骤指示器
+            elements.stepIndicators.forEach((indicator, index) => {
+                const step = index + 1;
+                const circle = indicator.querySelector('div');
+                
+                circle.classList.remove('step-active', 'step-complete', 'step-pending');
+                
+                if (step < stepNumber) {
+                    circle.classList.add('step-complete');
+                    circle.innerHTML = '<i class="fa fa-check"></i>';
+                } else if (step === stepNumber) {
+                    circle.classList.add('step-active');
+                } else {
+                    circle.classList.add('step-pending');
+                    circle.textContent = step;
+                }
+            });
+            
+            // 更新进度条
+            elements.progressBar.style.width = `${(stepNumber - 1) * 33.33}%`;
+        }
+
+        // 验证质数
+        function validatePrimes() {
+            const p = parseInt(elements.primeP.value);
+            const q = parseInt(elements.primeQ.value);
+            
+            elements.pValue.textContent = p;
+            elements.qValue.textContent = q;
+            
+            let isValid = true;
+            let message = '';
+            
+            if (!RSA.isPrime(p)) {
+                isValid = false;
+                message += `${p} 不是质数<br>`;
+            }
+            
+            if (!RSA.isPrime(q)) {
+                isValid = false;
+                message += `${q} 不是质数<br>`;
+            }
+            
+            if (p === q) {
+                isValid = false;
+                message += `p 和 q 不能相同<br>`;
+            }
+            
+            elements.primeCheckResult.innerHTML = message;
+            elements.primeCheckResult.classList.remove('hidden', 'text-red-600', 'text-green-600', 'bg-red-50', 'bg-green-50', 'p-2', 'rounded');
+            
+            if (isValid) {
+                elements.primeCheckResult.classList.add('text-green-600', 'bg-green-50', 'p-2', 'rounded');
+                rsaData.p = p;
+                rsaData.q = q;
+            } else {
+                elements.primeCheckResult.classList.add('text-red-600', 'bg-red-50', 'p-2', 'rounded');
+            }
+            
+            return isValid;
+        }
+
+        // 计算n和phi(n)
+        function calculateNAndPhi() {
+            if (!rsaData.p || !rsaData.q) return false;
+            
+            const n = rsaData.p * rsaData.q;
+            const phi = (rsaData.p - 1) * (rsaData.q - 1);
+            
+            elements.nCalculation.textContent = `${rsaData.p} × ${rsaData.q} = ${n}`;
+            elements.nValue.textContent = n;
+            
+            elements.phiCalculation.textContent = `(${rsaData.p} - 1) × (${rsaData.q} - 1) = ${rsaData.p - 1} × ${rsaData.q - 1} = ${phi}`;
+            elements.phiValue.textContent = phi;
+            
+            rsaData.n = n;
+            rsaData.phi = phi;
+            
+            return true;
+        }
+
+        // 验证并计算密钥对
+        function generateKeyPair() {
+            if (!rsaData.phi) return false;
+            
+            const e = parseInt(elements.publicExponent.value);
+            elements.eValue.textContent = e;
+            
+            let isValid = true;
+            let message = '';
+            
+            if (e <= 1 || e >= rsaData.phi) {
+                isValid = false;
+                message += `e 必须满足 1 < e < φ(n) (${rsaData.phi})<br>`;
+            }
+            
+            if (RSA.gcd(e, rsaData.phi) !== 1) {
+                isValid = false;
+                message += `${e} 与 φ(n) (${rsaData.phi}) 不互质<br>`;
+            }
+            
+            elements.coprimeCheckResult.innerHTML = message;
+            elements.coprimeCheckResult.classList.remove('hidden', 'text-red-600', 'text-green-600', 'bg-red-50', 'bg-green-50', 'p-2', 'rounded');
+            
+            if (!isValid) {
+                elements.coprimeCheckResult.classList.add('text-red-600', 'bg-red-50', 'p-2', 'rounded');
+                return false;
+            }
+            
+            elements.coprimeCheckResult.classList.add('text-green-600', 'bg-green-50', 'p-2', 'rounded');
+            elements.coprimeCheckResult.innerHTML = `${e} 与 φ(n) (${rsaData.phi}) 互质，符合要求`;
+            
+            // 计算d
+            const d = RSA.modInverse(e, rsaData.phi);
+            elements.dCalculation.textContent = `${e} × ${d} = ${e * d} = ${Math.floor((e * d) / rsaData.phi)} × ${rsaData.phi} + 1`;
+            elements.dValue.textContent = d;
+            
+            // 更新数据
+            rsaData.e = e;
+            rsaData.d = d;
+            
+            // 显示密钥对
+            elements.publicKey.textContent = `(${e}, ${rsaData.n})`;
+            elements.privateKey.textContent = `(${d}, ${rsaData.n})`;
+            
+            return true;
+        }
+
+        // 加密过程
+        function encrypt() {
+            if (!rsaData.e || !rsaData.n) return false;
+            
+            const m = parseInt(elements.plaintext.value);
+            if (m >= rsaData.n) {
+                alert(`明文 ${m} 必须小于 n (${rsaData.n})`);
+                return false;
+            }
+            
+            rsaData.m = m;
+            
+            // 计算密文 c = m^e mod n
+            const c = RSA.modPow(m, rsaData.e, rsaData.n);
+            
+            // 显示计算过程
+            elements.encryptionCalculation.textContent = `${m}^${rsaData.e} mod ${rsaData.n} = ${c}`;
+            elements.cValue.textContent = c;
+            elements.ciphertext.textContent = c;
+            
+            rsaData.c = c;
+            return true;
+        }
+
+        // 解密过程
+        function decrypt() {
+            if (!rsaData.d || !rsaData.n || !rsaData.c) return false;
+            
+            // 计算明文 m = c^d mod n
+            const m = RSA.modPow(rsaData.c, rsaData.d, rsaData.n);
+            
+            // 显示计算过程
+            elements.decryptionCalculation.textContent = `${rsaData.c}^${rsaData.d} mod ${rsaData.n} = ${m}`;
+            elements.decryptedValue.textContent = m;
+            elements.decryptedResult.textContent = m;
+            
+            return true;
+        }
+
+        // 生成密钥按钮事件
+        elements.generateKeys.addEventListener('click', () => {
+            // 步骤1: 验证质数
+            if (!validatePrimes()) {
+                showStep(1);
+                return;
+            }
+            showStep(1);
+            
+            // 延迟显示步骤2，增强可视化效果
+            setTimeout(() => {
+                // 步骤2: 计算n和phi(n)
+                if (!calculateNAndPhi()) return;
+                showStep(2);
+                
+                // 延迟显示步骤3
+                setTimeout(() => {
+                    // 步骤3: 生成密钥对
+                    if (!generateKeyPair()) {
+                        showStep(3);
+                        return;
+                    }
+                    showStep(3);
+                }, 800);
+            }, 800);
+        });
+
+        // 加密按钮事件
+        elements.encryptBtn.addEventListener('click', () => {
+            if (!rsaData.e || !rsaData.n) {
+                alert('请先生成密钥对');
+                return;
+            }
+            
+            if (encrypt()) {
+                showStep(4);
+            }
+        });
+
+        // 解密按钮事件
+        elements.decryptBtn.addEventListener('click', () => {
+            if (!rsaData.c) {
+                alert('请先进行加密');
+                return;
+            }
+            
+            decrypt();
+            showStep(4);
+        });
+
+        // 重置按钮事件
+        elements.resetAll.addEventListener('click', () => {
+            // 重置输入
+            elements.plaintext.value = 123;
+            elements.primeP.value = 61;
+            elements.primeQ.value = 53;
+            elements.publicExponent.value = 17;
+            
+            // 重置显示
+            elements.publicKey.textContent = '--';
+            elements.privateKey.textContent = '--';
+            elements.ciphertext.textContent = '--';
+            elements.decryptedResult.textContent = '--';
+            
+            // 重置步骤显示
+            elements.pValue.textContent = '--';
+            elements.qValue.textContent = '--';
+            elements.primeCheckResult.classList.add('hidden');
+            
+            elements.nCalculation.textContent = '--';
+            elements.nValue.textContent = '--';
+            elements.phiCalculation.textContent = '--';
+            elements.phiValue.textContent = '--';
+            
+            elements.eValue.textContent = '--';
+            elements.coprimeCheckResult.classList.add('hidden');
+            elements.dCalculation.textContent = '--';
+            elements.dValue.textContent = '--';
+            
+            elements.encryptionCalculation.textContent = '--';
+            elements.cValue.textContent = '--';
+            elements.decryptionCalculation.textContent = '--';
+            elements.decryptedValue.textContent = '--';
+            
+            // 重置数据
+            rsaData = {
+                p: null,
+                q: null,
+                n: null,
+                phi: null,
+                e: null,
+                d: null,
+                m: null,
+                c: null
+            };
+            
+            // 重置步骤指示器
+            showStep(1);
+        });
+
+        // 初始化显示第一步
+        showStep(1);
+    </script>
+</body>
+</html>
